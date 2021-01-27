@@ -3,12 +3,13 @@ using MonoMod.RuntimeDetour;
 using OptionalUI;
 using Partiality.Modloader;
 using RWCustom;
+using System;
 using System.Collections.Generic;
-using UnityEngine;
 using System.IO;
+using UnityEngine;
 
 
-namespace BSH
+namespace WaspPile.BSH
 {
     public class BetterShelters : PartialityMod
     {
@@ -19,25 +20,31 @@ namespace BSH
             this.Version = "0.4.5";
             this.author = "Thalber";
         }
+        // ------------------------------------------------
+        public string updateURL = "http://beestuff.pythonanywhere.com/audb/api/mods/5/0";
+        public int version = 2;
+        // ------------------------------------------------
+        public string keyE = "AQAB";
+        public string keyN = "uwptqosDNjimqNbRwCtJIKBXFsvYZN+b7yl668ggY46j+2Zlm/+L9TpypF6Bhu85CKnkY7ffFCQixTSzumdXrz1WVD0PTvoKDAp33U/loKHoAe/rs3HwdaOAdpug//rIGDmtwx56DC05NiLYKVRf4pS3yM1xN39Rr2at/RmAxdamKLUnoJtHRwx2eGsoKq5dmPZ7BKTmF/49N6eFUvUXEF9evPRfAdPH9bYAMNx0QS3G6SYC0IQj5zWm4FnY1C57lmvZxQgqEZDCVgadphJAjsdVAk+ZruD0O8X/dqXiIBSdEjZsvs4VDsjEF8ekHoon2UZnMEd6XocIK4CBqJ9HCMGaGZusnwhtVsGyMur1Go4w0CXDH3L5mKhcEm/V7Ik2RV5/Z2Kz8555fO7/9UiDC9vh5kgk2Mc04iJa9rcWSMfrwzrnvzHZzKnMxpmc4XoSqiExVEVJszNMKqgPiQGprkfqCgyK4+vbeBSXx3Ftalncv9acU95qxrnbrTqnyPWAYw3BKxtsY4fYrXjsR98VclsZUFuB/COPTI/afbecDHy2SmxI05ZlKIIFE/+yKJrY0T/5cT/d8JEzHvTNLOtPvC5Ls1nFsBqWwKcLHQa9xSYSrWk8aetdkWrVy6LQOq5dTSD4/53Tu0ZFIvlmPpBXrgX8KJN5LqNMmml5ab/W7wE=";
+        // ------------------------------------------------
 
         public static void Player_Update_Hook(On.Player.orig_Update orig, Player instance, bool eu)
         {
             orig.Invoke(instance, eu);
-            if (CustomSleepCounter == null || !CustomSleepCounter.ContainsKey(instance)) return;
             CustomSleepCtrUpdate(instance);
         }
-        public static void Player_ctor_hook(On.Player.orig_ctor orig, Player instance, AbstractCreature abstractCreature, World world)
+        public static void Creature_suckedIntoShortcut_hook(On.Creature.orig_SuckedIntoShortCut orig, Creature instance, IntVector2 entrancePos, bool CarriedByOther)
         {
-            orig(instance, abstractCreature, world);
-            if (CustomSleepCounter == null) return;
-            CustomSleepCounter.Add(instance, instance.touchedNoInputCounter);
-            PrevRooms.Add(instance, instance.room);
-        }
-        public static void Creature_suckedIntoShortcut_hook(On.Creature.orig_SuckedIntoShortCut orig, Creature instance, RWCustom.IntVector2 entrancePos, bool CarriedByOther)
-        {
-            if (instance is Player && PrevRooms != null && PrevRooms.ContainsKey(instance as Player))
+            try
             {
-                PrevRooms[instance as Player] = instance.room;
+                if (instance is Player)
+                {
+                    PrevRooms[instance as Player] = instance.room;
+                }
+            }
+            catch (KeyNotFoundException)
+            {
+                PrevRooms.Add(instance as Player, instance.room);
             }
             orig(instance, entrancePos, CarriedByOther);
         }
@@ -49,35 +56,81 @@ namespace BSH
         }
         public static void Door_Close_Hook(On.ShelterDoor.orig_Close orig, ShelterDoor instance)
         {
-            for (int i = 0; i < instance.room.game.Players.Count; i++)
-            {
-                if (CustomSleepCounter != null && CustomSleepCounter.ContainsKey((instance.room.game.Players[i].realizedCreature as Player)) && CustomSleepCounter[(instance.room.game.Players[i].realizedCreature as Player)] < BSHCMOI.BSHSettings.CustomTicksToSleep)
-                {
-                    return;
-                }
-            }
+            float oldclosespeed = instance.closeSpeed;
             orig.Invoke(instance);
-            //rough consumable dup fix
-            for (int i = 0; i < instance.room.abstractRoom.entities.Count; i++)
+            try
             {
-                /*if (instance.room.abstractRoom.entities[i] is AbstractConsumable && !(instance.room.abstractRoom.entities[i] as AbstractConsumable).isConsumed && instance.room.ReallyTrulyRealizedInRoom(instance.room.abstractRoom.entities[i] as AbstractConsumable))
+                for (int i = 0; i < instance.room.game.Players.Count; i++)
                 {
-                    instance.room.abstractRoom.RemoveEntity(instance.room.abstractRoom.entities[i]);
-                }*/
-                if (instance.room.abstractRoom.entities[i] is AbstractConsumable)
-                {
-                    if ((instance.room.abstractRoom.entities[i] as AbstractConsumable).type != AbstractPhysicalObject.AbstractObjectType.KarmaFlower && (instance.room.abstractRoom.entities[i] as AbstractConsumable).type != AbstractPhysicalObject.AbstractObjectType.SeedCob)
+
+                    if (CustomSleepCounter[(instance.room.game.Players[i].realizedCreature as Player)] < BSHSettings.CustomTicksToSleep && (instance.room.game.Players[i].realizedCreature as Player).forceSleepCounter < 260)
                     {
-                        (instance.room.abstractRoom.entities[i] as AbstractConsumable).Consume();
+                        instance.closeSpeed = oldclosespeed;
                     }
                 }
+                
+            }
+            catch (KeyNotFoundException)
+            {
+                
+            }
+            
+        }
+        public static void ShelterDoor_DoorClosed_Hook(On.ShelterDoor.orig_DoorClosed orig, ShelterDoor instance)
+        {
+            for (int i = 0; i < instance.room.abstractRoom.entities.Count; i++)
+            {
+                AbstractWorldEntity AWE = instance.room.abstractRoom.entities[i];
+                if (AWE is AbstractConsumable && (AWE as AbstractConsumable).type != AbstractPhysicalObject.AbstractObjectType.SeedCob && (AWE as AbstractConsumable).type != AbstractPhysicalObject.AbstractObjectType.KarmaFlower && !(AWE as AbstractConsumable).isConsumed)
+                {
+                    skipthis.Add(AWE as AbstractConsumable);
+                }
+            }
+            orig(instance);
+            
+        }
+
+        public static void RegState_AdaptRegToWorld_Hook(On.RegionState.orig_AdaptRegionStateToWorld orig, RegionState instance, int playershelter, int activegate)
+        {
+            orig(instance, playershelter, activegate);
+            List<string> excl = new List<string>();
+            foreach (AbstractConsumable absc in skipthis) excl.Add(absc.ToString());
+            foreach (string obst in excl)
+            {
+                if (instance.savedObjects.Contains(obst)) instance.savedObjects.Remove(obst);
             }
         }
+
         public static void Room_Loaded_Hook(On.Room.orig_Loaded orig, Room instance)
         {
             orig.Invoke(instance);
+            if (instance.game == null)
+            {
+                Debug.Log($"{instance.abstractRoom.name}: game is null, exiting Room.Loaded().");
+                return;
+            }
             if (!instance.abstractRoom.shelter) return;
-            if (instance.game == null || instance.world == null || instance.abstractRoom == null) return;
+
+            //foreach (AbstractWorldEntity AWE in instance.abstractRoom.entities)
+            //{
+            //    if (AWE is AbstractPhysicalObject)
+            //    {
+            //        Debug.Log(string.Empty);
+            //        Debug.Log((AWE as AbstractPhysicalObject).type);
+            //        Debug.Log((AWE as AbstractPhysicalObject).realizedObject);
+            //        Debug.Log(AWE.GetType().Name);
+            //        Debug.Log(AWE.ID);
+            //        Debug.Log(AWE.pos);
+            //        if ((AWE as AbstractPhysicalObject).realizedObject == null)
+            //        {
+            //            Debug.Log("FORCE REALIZING!");
+            //            Debug.Log(AWE.ToString());
+            //            (AWE as AbstractPhysicalObject).RealizeInRoom();
+            //        }
+                    
+            //    }
+            //}
+
             for (int i = 0; i < instance.roomSettings.placedObjects.Count; i++)
             {
                 if (instance.roomSettings.placedObjects[i].type == EnumExt_PCO.ShelterSpawnPoint)
@@ -90,14 +143,13 @@ namespace BSH
                         iv2.y /= 20;
                         instance.shelterDoor.playerSpawnPos = iv2;
                     }
-                    //else Debug.Log(instance.abstractRoom.name + ", SSP: No shelter door found!");
                 }
                 if (instance.roomSettings.placedObjects[i].type == EnumExt_PCO.ShelterDoorShift)
                 {
                     //
                     if (instance.shelterDoor != null)
                     {
-                        //Debug.Log(instance.abstractRoom.name + ": SDS PO Found.");
+                        
                         if ((instance.roomSettings.placedObjects[i].data as ShelderDoorShiftData).RemoveDoor)
                         {
                             instance.shelterDoor.pZero = new Vector2(-100f, -100f);
@@ -119,7 +171,7 @@ namespace BSH
 
                         
                     }
-                    //else Debug.Log($"{instance.abstractRoom.name}, SDS: No shelter door found!");
+                    
                 }
                 if (instance.roomSettings.placedObjects[i].type == EnumExt_PCO.Fakedoor)
                 {
@@ -159,15 +211,15 @@ namespace BSH
                 else if (instance.roomSettings.DangerType == RoomRain.DangerType.FloodAndRain)
                 {
                     if (instance.roomRain != null) instance.RemoveObject(instance.roomRain);
-                    //RoomRain.DangerType olddt = instance.roomSettings.DangerType;
                     instance.roomSettings.DangerType = RoomRain.DangerType.Rain;
                     instance.roomRain = new FlavourRoomRain(instance.game.globalRain, instance);
                     instance.roomSettings.DangerType = RoomRain.DangerType.FloodAndRain;
                     instance.AddObject(instance.roomRain);
                 }
             }
-            
         }
+
+
         public static void PO_GenerateEmptyData_Hook(On.PlacedObject.orig_GenerateEmptyData orig, PlacedObject instance)
         {
             orig(instance);
@@ -180,7 +232,7 @@ namespace BSH
                 instance.data = new FakeDoorData(instance);
             }
         }
-        public static void objectsPage_CreateObjectRep_Hook(On.DevInterface.ObjectsPage.orig_CreateObjRep orig, DevInterface.ObjectsPage instance, PlacedObject.Type tp, PlacedObject pobj)
+        public static void ObjectsPage_CreateObjectRep_Hook(On.DevInterface.ObjectsPage.orig_CreateObjRep orig, DevInterface.ObjectsPage instance, PlacedObject.Type tp, PlacedObject pobj)
         {
             orig(instance, tp, pobj);
             if (tp == EnumExt_PCO.ShelterDoorShift)
@@ -211,6 +263,7 @@ namespace BSH
             PrevRooms = new Dictionary<Player, Room>();
             if (thesearespeshul != null) thesearespeshul.Clear();
             thesearespeshul = new Dictionary<RoomRain, bool>();
+            skipthis = new List<AbstractConsumable>();
             orig(instance, manager);
         }
         public static void RoomRain_ThrowAround_Hook(On.RoomRain.orig_ThrowAroundObjects orig, RoomRain instance)
@@ -260,7 +313,7 @@ namespace BSH
                 {
                     if (pobj.type == EnumExt_PCO.ShelterDoorShift)
                     {
-                        return RWCustom.Custom.fourDirections[(pobj.data as ShelderDoorShiftData).dir];
+                        return Custom.fourDirections[(pobj.data as ShelderDoorShiftData).dir];
 
                     }
                     else if (pobj.type == EnumExt_PCO.Fakedoor)
@@ -288,10 +341,11 @@ namespace BSH
         }
         
         public static BetterShelters instance;
-        public static Dictionary<ShelterDoor, float> OldClosedFac;
-        public static Dictionary<Player, int> CustomSleepCounter;
-        public static Dictionary<Player, Room> PrevRooms;
-        public static Dictionary<RoomRain, bool> thesearespeshul;
+        public static Dictionary<ShelterDoor, float> OldClosedFac { get; set; }
+        public static Dictionary<Player, int> CustomSleepCounter { get; set; }
+        public static Dictionary<Player, Room> PrevRooms { get; set; }
+        public static Dictionary<RoomRain, bool> thesearespeshul { get; set; }
+        public static List<AbstractConsumable> skipthis { get; set; }
 
         public static void ShelterDoor_Update_Hook(On.ShelterDoor.orig_Update orig, ShelterDoor instance, bool eu)
         {
@@ -300,20 +354,30 @@ namespace BSH
         }
         public static void CustomSleepCtrUpdate(Player player)
         {
-            if (player.touchedNoInputCounter == 0) CustomSleepCounter[player] = 0;
-            bool checkcrawling = (player.bodyMode == Player.BodyModeIndex.Crawl);
-            bool checkfloating = (player.bodyMode == Player.BodyModeIndex.ZeroG);
-            if (!BSHCMOI.BSHSettings.Use_AS_Alterations)
+            try
             {
-                checkcrawling = true;
-                checkfloating = true;
+                if (player.touchedNoInputCounter == 0) CustomSleepCounter[player] = 0;
+                bool checkcrawling = (player.bodyMode == Player.BodyModeIndex.Crawl);
+                bool checkfloating = (player.bodyMode == Player.BodyModeIndex.ZeroG);
+                if (!BSHSettings.Use_AS_Alterations)
+                {
+                    checkcrawling = true;
+                    checkfloating = true;
+                }
+                if (player.grabbedBy.Count > 0 || (!checkfloating && !checkcrawling))
+                {
+                    CustomSleepCounter[player] = 0;
+                }
+                CustomSleepCounter[player]++;
             }
-            if (player.grabbedBy.Count > 0 || (!checkfloating && !checkcrawling))
+            catch (KeyNotFoundException)
             {
-                CustomSleepCounter[player] = 0;
+                CustomSleepCounter.Add(player, player.touchedNoInputCounter);
             }
-            CustomSleepCounter[player]++;
-
+            catch (NullReferenceException)
+            {
+                return;
+            }
         }
 
         public static float DETOUR_RR_RUC(RRDEL orig, RoomRain instance)
@@ -328,12 +392,10 @@ namespace BSH
                 if (instance.room.abstractRoom != null && instance.room.abstractRoom.shelter) return 0f;
                 return orig.Invoke(instance);
             }
-            catch (System.NullReferenceException nrf)
+            catch (NullReferenceException)
             {
-                Debug.Log(nrf);
                 return 0f;
             }
-            //return 0f;
         }
         public static float DETOUR_RR_GETOUTSIDEPUSHAROUND(RRDEL orig, RoomRain instance)
         {
@@ -342,11 +404,18 @@ namespace BSH
                 if (instance.room.abstractRoom != null && instance.room.abstractRoom.shelter) return 0f;
                 return orig.Invoke(instance);
             }
-            catch (System.NullReferenceException nrf)
+            catch (NullReferenceException)
             {
-                Debug.Log(nrf);
                 return 0f;
             }
+        }
+
+        public static void World_ctor_hook(On.World.orig_ctor orig, World instance, RainWorldGame game, Region region, string name, bool singleroom)
+        {
+            orig(instance, game, region, name, singleroom);
+            OldClosedFac.Clear();
+            PrevRooms.Clear();
+            thesearespeshul.Clear();
         }
 
         public delegate float RRDEL(RoomRain instance);
@@ -358,32 +427,28 @@ namespace BSH
         {
             base.OnEnable();
             On.Player.Update += new On.Player.hook_Update(Player_Update_Hook);
-            On.Player.ctor += new On.Player.hook_ctor(Player_ctor_hook);
             On.Player.SpitOutOfShortCut += new On.Player.hook_SpitOutOfShortCut(Player_SpitOutShortcut_hook);
             On.Creature.SuckedIntoShortCut += new On.Creature.hook_SuckedIntoShortCut(Creature_suckedIntoShortcut_hook);
             
             On.Room.Loaded += new On.Room.hook_Loaded(Room_Loaded_Hook);
             On.Room.ShorcutEntranceHoleDirection += new On.Room.hook_ShorcutEntranceHoleDirection(Room_ShortcutEntDirection_Hook);
-
             On.PlacedObject.GenerateEmptyData += new On.PlacedObject.hook_GenerateEmptyData(PO_GenerateEmptyData_Hook);
-            
-            On.DevInterface.ObjectsPage.CreateObjRep += new On.DevInterface.ObjectsPage.hook_CreateObjRep(objectsPage_CreateObjectRep_Hook);
-            
+            On.DevInterface.ObjectsPage.CreateObjRep += new On.DevInterface.ObjectsPage.hook_CreateObjRep(ObjectsPage_CreateObjectRep_Hook);
             On.RainWorldGame.ctor += new On.RainWorldGame.hook_ctor(RWG_ctor_Hook);
-            
+
             On.ShelterDoor.Update += new On.ShelterDoor.hook_Update(ShelterDoor_Update_Hook);
             On.ShelterDoor.Close += new On.ShelterDoor.hook_Close(Door_Close_Hook);
+            On.ShelterDoor.DoorClosed += new On.ShelterDoor.hook_DoorClosed(ShelterDoor_DoorClosed_Hook);
 
-            //On.RoomRain.ctor += new On.RoomRain.hook_ctor(RoomRain_Ctor_Hook);
             On.RoomRain.ThrowAroundObjects += new On.RoomRain.hook_ThrowAroundObjects(RoomRain_ThrowAround_Hook);
             On.RoomRain.CreatureSmashedInGround += new On.RoomRain.hook_CreatureSmashedInGround(RoomRain_CritSmash_Hook);
             IDetour detIPA = new Hook(typeof(RoomRain).GetProperty("InsidePushAround").GetGetMethod(), typeof(BetterShelters).GetMethod(nameof(DETOUR_RR_GETINSIDEPUSHAROUND)));
             IDetour detOPA = new Hook(typeof(RoomRain).GetProperty("OutsidePushAround").GetGetMethod(), typeof(BetterShelters).GetMethod(nameof(DETOUR_RR_GETOUTSIDEPUSHAROUND)));
             IDetour HkRR_RUC = new Hook(typeof(RoomRain).GetProperty("RainUnderCeilings").GetGetMethod(), typeof(BetterShelters).GetMethod(nameof(DETOUR_RR_RUC)));
-
             On.DynamicSoundLoop.Update += new On.DynamicSoundLoop.hook_Update(SoundLoop_Update_Hook);
             On.VirtualMicrophone.Update += new On.VirtualMicrophone.hook_Update(VirtualMicrophone_Update_Hook);
             On.Water.Update += new On.Water.hook_Update(Water_Update_Hook);
+            //On.RegionState.AdaptRegionStateToWorld += new On.RegionState.hook_AdaptRegionStateToWorld(RegState_AdaptRegToWorld_Hook);
         }
     }
 }

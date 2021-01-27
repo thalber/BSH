@@ -1,11 +1,8 @@
 ﻿using DevInterface;
-using On;
-using On.RWCustom;
-using System.Collections;
 using System.Text.RegularExpressions;
 using UnityEngine;
 
-namespace BSH
+namespace WaspPile.BSH
 {
     public static class EnumExt_PCO
     {
@@ -99,8 +96,9 @@ namespace BSH
                 }
             }
         }
-        SDSControlPanel theonlypanel;
-        SDSButton theonlybutton;
+
+        private SDSControlPanel theonlypanel;
+        private SDSButton theonlybutton;
         public override void Update()
         {
             base.Update();
@@ -195,8 +193,9 @@ namespace BSH
                 }
             }
         }
-        ShelterDoorShiftRep.SDSControlPanel theonlypanel;
-        ShelterDoorShiftRep.SDSButton theonlybutton;
+
+        private ShelterDoorShiftRep.SDSControlPanel theonlypanel;
+        private ShelterDoorShiftRep.SDSButton theonlybutton;
         //FakeDoor fakeDoor;
 
         public override void Update()

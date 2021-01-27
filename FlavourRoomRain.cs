@@ -1,19 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using AssemblyCSharp;
-using UnityEngine;
-using RWCustom;
+﻿using UnityEngine;
 
-namespace BSH
+namespace WaspPile.BSH
 {
-    class FlavourRoomRain : RoomRain, IDrawable
+    internal class FlavourRoomRain : RoomRain, IDrawable
     {
         public FlavourRoomRain(GlobalRain GR, Room RM) : base (GR, RM)
         {
             this.room = RM;
-			//this.dangerType = DangerType.Rain;
+			
         }
         public override void Update(bool eu)
         {
@@ -29,7 +23,7 @@ namespace BSH
 			this.deathRainSound.Update();
 			this.rumbleSound.Volume = this.globalRain.RumbleSound * this.room.roomSettings.RumbleIntensity;
 			this.rumbleSound.Update();
-			this.distantDeathRainSound.Volume = Mathf.InverseLerp(1400f, 0f, (float)this.room.world.rainCycle.TimeUntilRain) * this.room.roomSettings.RainIntensity;
+			this.distantDeathRainSound.Volume = Mathf.InverseLerp(1400f, 0f, room.world.rainCycle.TimeUntilRain) * this.room.roomSettings.RainIntensity;
 			this.distantDeathRainSound.Update();
 			/*if (this.dangerType != RoomRain.DangerType.Rain)
 			{

@@ -1,16 +1,14 @@
 ﻿using RWCustom;
 using UnityEngine;
 
-namespace BSH
+namespace WaspPile.BSH
 {
     public class FakeDoor : UpdatableAndDeletable, IDrawable
     {
         public FakeDoor (Room room, IntVector2 tpos, int idir, ShelterDoor RealDoor)
         {
-            //should be synced with the real door
             this.room = room;
             this.ActualDoor = RealDoor;
-            //Debug.Log($"{this.room.abstractRoom.name} pre-if {this.id}");
             if (this.ActualDoor == null)
             {
                 Debug.LogWarning($"{this.room.abstractRoom.name}: DOOR SYNC FAILED");
@@ -19,11 +17,10 @@ namespace BSH
             }
             this.dir = Custom.fourDirections[idir].ToVector2();
             this.pZero = this.room.MiddleOfTile(tpos);
-            //Debug.Log($"{this.room.abstractRoom.name} test? {this.id}");
             int seed = Random.seed;
             Random.seed = this.room.abstractRoom.index + (idir * tpos.x / tpos.y);
-            this.brokenSegs = 0.25f + 0.5f * UnityEngine.Random.value;
-            this.brokenFlaps = 0.5f + 0.5f * UnityEngine.Random.value;
+            this.brokenSegs = 0.25f + 0.5f * Random.value;
+            this.brokenFlaps = 0.5f + 0.5f * Random.value;
             Random.seed = seed;
 
             this.closeTiles = new IntVector2[4];
@@ -41,7 +38,6 @@ namespace BSH
             this.gasketMoverLoop = new StaticSoundLoop(SoundID.Shelter_Gasket_Mover_LOOP, this.pZero, room, 0f, 1f);
 
         }
-
         public override void Update(bool eu)
         {
             base.Update(eu);
@@ -166,10 +162,6 @@ namespace BSH
             if (flag != this.lastClosed)
             {
                 this.Reset();
-                /*for (int i = 0; i < this.closeTiles.Length; i++)
-                {
-                    this.room.GetTile(this.closeTiles[i]).Terrain = ((!flag) ? Room.Tile.TerrainType.Air : Room.Tile.TerrainType.Solid);
-                }*/
             }
             this.lastClosed = flag;
         }
@@ -234,8 +226,7 @@ namespace BSH
             }
         }
 
-        ShelterDoor ActualDoor;
-        //float id = Random.value;
+        private ShelterDoor ActualDoor;
         public void InitiateSprites(RoomCamera.SpriteLeaser sLeaser, RoomCamera rCam)
         {
             sLeaser.sprites = new FSprite[42];
@@ -325,7 +316,7 @@ namespace BSH
             }
             for (int m = 0; m < 4; m++)
             {
-                if ((float)m / 4f < this.Cylinders)
+                if (m / 4f < this.Cylinders)
                 {
                     sLeaser.sprites[this.CylinderSprite(m)].x = this.pZero.x - camPos.x;
                     sLeaser.sprites[this.CylinderSprite(m)].y = this.pZero.y - camPos.y;
@@ -369,7 +360,6 @@ namespace BSH
                 newContatiner.AddChild(sLeaser.sprites[i]);
             }
         }
-
         public Vector2 pZero;
         public Vector2 dir;
         public Vector2 perp
@@ -377,7 +367,7 @@ namespace BSH
             get { return Custom.PerpendicularVector(this.dir); }
         }
 
-        IntVector2[] closeTiles;
+        private IntVector2[] closeTiles;
         private float[,] segmentPairs;
         private float[,] pistons;
         private float[,] covers;

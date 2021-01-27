@@ -1,6 +1,5 @@
-﻿using System;
+﻿using System.Runtime.CompilerServices;
 using System.Security;
-using System.Runtime.CompilerServices;
 using System.Security.Permissions;
 
 [assembly: IgnoresAccessChecksTo("Assembly-CSharp")]
